@@ -34,7 +34,7 @@ services:
     container_name: switchboard_postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-switchboard_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD not set - put it in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-switchboard_db}
     ports:
       - "5433:5432"

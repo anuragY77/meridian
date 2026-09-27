@@ -1,34 +1,23 @@
-# secrets / local env
+# Environment & secrets
 .env
-.env.*
-!.env.example
-*.pem
-*.key
-*.p12
-*.pfx
-secrets/
-credentials
 
-# python
+# Python
 venv/
-.venv/
-env/
 __pycache__/
-*.py[cod]
-*.egg-info/
-app/models/*.pkl
+*.pyc
+*.pyo
 .pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
 
-# logs & os
-*.log
+# ML artifacts (large binaries, regenerable from train_model.py)
+app/models/*.pkl
+
+# Node / Next.js (dashboard subfolder)
+switchboard-dashboard/node_modules/
+switchboard-dashboard/.next/
+switchboard-dashboard/out/
+switchboard-dashboard/.env*.local
+
+# OS/editor junk
 .DS_Store
-Thumbs.db
-
-# editors
 .vscode/
-.idea/
 *.swp
