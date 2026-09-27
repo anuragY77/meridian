@@ -67,9 +67,10 @@ def process_transaction(txn: dict) -> None:
             amount=txn["amount"],
             currency=txn["currency"],
             method=txn["method"],
+            card_last4=txn.get("card_last4"),
             status="pending",
             created_at=synthetic_ts,
-            routing_strategy=settings.routing_strategy,  # <-- tracked now
+            routing_strategy=settings.routing_strategy,
         )
         db.add(record)
         db.commit()
