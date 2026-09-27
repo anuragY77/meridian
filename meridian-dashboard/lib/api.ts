@@ -47,6 +47,19 @@ export interface RecentTransaction {
   created_at: string | null;
 }
 
+export interface FraudFlagsResponse {
+  total_flags: number;
+  by_rule: Record<string, number>;
+  recent: {
+    transaction_id: string;
+    customer_id: string;
+    rule_triggered: string;
+    reason: string;
+    severity: string;
+    flagged_at: string | null;
+  }[];
+}
+
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to fetch ${path}: ${res.status}`);
@@ -61,4 +74,5 @@ export const api = {
   routingComparison: () => fetchJson<RoutingComparison[]>("/api/routing-comparison"),
   recentTransactions: (limit = 20) =>
     fetchJson<RecentTransaction[]>(`/api/recent-transactions?limit=${limit}`),
+  fraudFlags: (limit = 50) => fetchJson<FraudFlagsResponse>(`/api/fraud-flags?limit=${limit}`),
 };

@@ -195,3 +195,35 @@ def get_recent_transactions(limit: int = Query(default=20, le=100)):
         ]
     finally:
         db.close()
+
+
+@app.get("/api/fraud-flags")
+def get_fraud_flags(limit: int = Query(default=50, le=200)):
+    """Recent fraud flags with breakdown by rule and severity."""
+    from app.database import FraudFlag
+
+    db = SessionLocal()
+    try:
+        rows = db.query(FraudFlag).order_by(FraudFlag.flagged_at.desc()).limit(limit).all()
+
+        rule_counts: dict[str, int] = {}
+        for row in db.query(FraudFlag.rule_triggered).all():
+            rule_counts[row[0]] = rule_counts.get(row[0], 0) + 1
+
+        return {
+            "total_flags": sum(rule_counts.values()),
+            "by_rule": rule_counts,
+            "recent": [
+                {
+                    "transaction_id": r.transaction_id[:8],
+                    "customer_id": r.customer_id,
+                    "rule_triggered": r.rule_triggered,
+                    "reason": r.reason,
+                    "severity": r.severity,
+                    "flagged_at": r.flagged_at.isoformat() if r.flagged_at else None,
+                }
+                for r in rows
+            ],
+        }
+    finally:
+        db.close()

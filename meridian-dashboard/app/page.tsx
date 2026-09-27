@@ -8,6 +8,8 @@ import {
 import { api, Overview, MethodStat, GatewayStat, DeclineCode, RoutingComparison, RecentTransaction } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
 import { RoutingComparisonCard } from "@/components/RoutingComparisonCard";
+import { FraudPanel } from "@/components/FraudPanel";
+import { FraudFlagsResponse } from "@/lib/api";
 
 const COLORS = ["#34d399", "#60a5fa", "#f472b6", "#fbbf24", "#a78bfa", "#f87171"];
 
@@ -18,18 +20,20 @@ export default function Dashboard() {
   const [declineCodes, setDeclineCodes] = useState<DeclineCode[]>([]);
   const [routingComparison, setRoutingComparison] = useState<RoutingComparison[]>([]);
   const [recent, setRecent] = useState<RecentTransaction[]>([]);
+  const [fraudFlags, setFraudFlags] = useState<FraudFlagsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   async function loadAll() {
     try {
-      const [ov, meth, gw, decl, routing, rec] = await Promise.all([
+      const [ov, meth, gw, decl, routing, rec, fraud] = await Promise.all([
         api.overview(),
         api.byMethod(),
         api.byGateway(),
         api.declineCodes(),
         api.routingComparison(),
         api.recentTransactions(15),
+        api.fraudFlags(30),
       ]);
       setOverview(ov);
       setByMethod(meth);
@@ -37,6 +41,7 @@ export default function Dashboard() {
       setDeclineCodes(decl);
       setRoutingComparison(routing);
       setRecent(rec);
+      setFraudFlags(fraud);
       setError(null);
     } catch (e) {
       setError("Could not reach the Meridian API — is uvicorn running on port 8000?");
@@ -82,6 +87,12 @@ export default function Dashboard() {
       <div className="mb-6">
         <RoutingComparisonCard data={routingComparison} />
       </div>
+
+      {fraudFlags && (
+        <div className="mb-6">
+          <FraudPanel data={fraudFlags} />
+        </div>
+      )}
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
