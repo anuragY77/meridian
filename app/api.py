@@ -75,34 +75,47 @@ def get_by_method():
 
 @app.get("/api/by-gateway")
 def get_by_gateway():
-    """Success rate + decline breakdown per gateway (chosen_gateway_id)."""
+    """
+    Success rate + latency per gateway, computed from EVERY attempt
+    recorded in attempts_log (not just chosen_gateway_id, which only
+    reflects the gateway of a transaction's final SUCCESSFUL attempt
+    and silently excludes every failed attempt from the stats).
+    """
     db = SessionLocal()
     try:
+        transactions = db.query(Transaction).filter(
+            Transaction.attempts_log.isnot(None)
+        ).all()
+
+        stats: dict[str, dict] = {}
+
+        for txn in transactions:
+            try:
+                attempts = json.loads(txn.attempts_log)
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+            for attempt in attempts:
+                gw_id = attempt["gateway_id"]
+                if gw_id not in stats:
+                    stats[gw_id] = {"total": 0, "success": 0, "latency_sum": 0}
+
+                stats[gw_id]["total"] += 1
+                if attempt["success"]:
+                    stats[gw_id]["success"] += 1
+                stats[gw_id]["latency_sum"] += attempt.get("latency_ms", 0)
+
         result = []
-        gateway_ids = db.query(Transaction.chosen_gateway_id).filter(
-            Transaction.chosen_gateway_id.isnot(None)
-        ).distinct().all()
-
-        for (gw_id,) in gateway_ids:
-            total = db.query(func.count(Transaction.transaction_id)).filter(
-                Transaction.chosen_gateway_id == gw_id
-            ).scalar() or 0
-            success = db.query(func.count(Transaction.transaction_id)).filter(
-                Transaction.chosen_gateway_id == gw_id, Transaction.status == "success"
-            ).scalar() or 0
-            avg_latency = db.query(func.avg(Transaction.last_latency_ms)).filter(
-                Transaction.chosen_gateway_id == gw_id
-            ).scalar() or 0
-
+        for gw_id, s in stats.items():
             gw_name = GATEWAYS[gw_id].name if gw_id in GATEWAYS else gw_id
-
             result.append({
                 "gateway_id": gw_id,
                 "gateway_name": gw_name,
-                "total": total,
-                "success_rate": round(success / total, 4) if total else 0,
-                "avg_latency_ms": round(avg_latency, 1),
+                "total": s["total"],
+                "success_rate": round(s["success"] / s["total"], 4) if s["total"] else 0,
+                "avg_latency_ms": round(s["latency_sum"] / s["total"], 1) if s["total"] else 0,
             })
+
         return sorted(result, key=lambda r: r["total"], reverse=True)
     finally:
         db.close()
