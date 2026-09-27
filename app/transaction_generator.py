@@ -16,26 +16,21 @@ MERCHANT_POOL = [
     "FitGear Sports", "PetCare Store", "EduLearn Courses",
 ]
 
+# Small pool of "suspicious" identities reused deliberately, so fraud
+# patterns (velocity, card-testing) actually have a chance to occur in
+# a short simulator run — mirrors how real fraud rings reuse a small
+# set of stolen identities/cards across many attempts.
+FRAUD_INJECTION_RATE = 0.08   # 8% of transactions deliberately drawn from this pool
+SUSPICIOUS_CUSTOMER_IDS = [f"cust_{i}" for i in range(90000, 90005)]
+SUSPICIOUS_CARDS = [f"{i}" for i in range(9001, 9004)]
+
 
 def generate_synthetic_timestamp() -> datetime:
-    """
-    Generates a random timestamp spread across the last 30 days and
-    across all 24 hours — this is what the transaction is PRETENDING
-    happened, regardless of when the simulator script is actually running.
-
-    Why: a 15-minute real-time simulator run only ever produces
-    real wall-clock timestamps within that same 15-minute window,
-    so a model trained on that data never sees enough hour/day
-    variance to learn time-based patterns (like night-time gateway
-    outages). Synthetic timestamps let one short run cover a full
-    24-hour x 7-day cycle instead.
-    """
     now = datetime.utcnow()
     days_back = random.randint(0, 30)
     hour = random.randint(0, 23)
     minute = random.randint(0, 59)
     second = random.randint(0, 59)
-
     dt = now - timedelta(days=days_back)
     return dt.replace(hour=hour, minute=minute, second=second, microsecond=0)
 
@@ -45,22 +40,36 @@ def generate_transaction() -> dict:
         list(METHOD_WEIGHTS.keys()), weights=list(METHOD_WEIGHTS.values()), k=1
     )[0]
 
-    if random.random() < 0.85:
-        amount = round(random.uniform(100, 5000), 2)
-    else:
-        amount = round(random.uniform(5000, 100000), 2)
+    is_injected_fraud_pattern = random.random() < FRAUD_INJECTION_RATE
 
-    synthetic_ts = generate_synthetic_timestamp()
+    if is_injected_fraud_pattern:
+        customer_id = random.choice(SUSPICIOUS_CUSTOMER_IDS)
+        if method != "CARD":
+            method = "CARD"
+        card_suffix = random.choice(SUSPICIOUS_CARDS)
+        amount = round(random.uniform(50000, 100000), 2)
+        # Cluster fraud-pattern timestamps within a tight, shared window
+        # (using wall-clock "now" so real-time-based Redis rules can
+        # actually observe the burst as it streams through)
+        synthetic_ts = datetime.utcnow() - timedelta(seconds=random.randint(0, 120))
+    else:
+        customer_id = f"cust_{random.randint(10000, 99999)}"
+        card_suffix = fake.credit_card_number()[-4:] if method == "CARD" else None
+        if random.random() < 0.85:
+            amount = round(random.uniform(100, 5000), 2)
+        else:
+            amount = round(random.uniform(5000, 100000), 2)
+        synthetic_ts = generate_synthetic_timestamp()
 
     return {
         "transaction_id": str(uuid.uuid4()),
         "idempotency_key": str(uuid.uuid4()),
         "merchant_id": f"merch_{random.randint(1000, 1050)}",
         "merchant_name": random.choice(MERCHANT_POOL),
-        "customer_id": f"cust_{random.randint(10000, 99999)}",
+        "customer_id": customer_id,
         "amount": amount,
         "currency": "INR",
         "method": method,
-        "card_last4": fake.credit_card_number()[-4:] if method == "CARD" else None,
-        "created_at": synthetic_ts.isoformat(),  # <-- ab synthetic, real wall-clock nahi
+        "card_last4": card_suffix,
+        "created_at": synthetic_ts.isoformat(),
     }
