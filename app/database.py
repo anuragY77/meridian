@@ -39,21 +39,40 @@ class Transaction(Base):
 
 
 class FraudFlag(Base):
-    """
-    Records every fraud/risk flag raised by the fraud engine, with an
-    explicit, human-readable reason — never a bare score. This is what
-    lets a reviewer (or an interviewer) see WHY something was flagged,
-    not just THAT it was flagged.
-    """
     __tablename__ = "fraud_flags"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     transaction_id = Column(String, nullable=False, index=True)
     customer_id = Column(String, nullable=False, index=True)
-    rule_triggered = Column(String, nullable=False)   # "VELOCITY", "CARD_TESTING", "AMOUNT_ANOMALY"
-    reason = Column(Text, nullable=False)             # human-readable explanation
-    severity = Column(String, default="medium")       # "low", "medium", "high"
+    rule_triggered = Column(String, nullable=False)
+    reason = Column(Text, nullable=False)
+    severity = Column(String, default="medium")
     flagged_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class Settlement(Base):
+    """
+    Represents the settlement of ONE successful cross-border transaction
+    into INR. Kept as a separate table (not columns on Transaction) because
+    settlement is conceptually a distinct downstream event — a transaction
+    can succeed at the gateway level well before it's actually settled,
+    exactly like real payment aggregators.
+    """
+    __tablename__ = "settlements"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    transaction_id = Column(String, nullable=False, unique=True, index=True)
+    merchant_id = Column(String, nullable=False, index=True)
+
+    original_amount = Column(Float, nullable=False)
+    original_currency = Column(String, nullable=False)
+    fx_rate_used = Column(Float, nullable=False)
+    gross_inr = Column(Float, nullable=False)
+    conversion_fee_inr = Column(Float, nullable=False)
+    net_settlement_inr = Column(Float, nullable=False)
+
+    reconciliation_status = Column(String, default="pending")  # pending, matched, mismatch
+    settled_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
 def init_db():
