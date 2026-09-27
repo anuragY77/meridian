@@ -163,3 +163,8 @@ npm run dev   # http://localhost:3000
   significant on its own, not just in the offline backtest
 - A feature to better capture the amount × gateway interaction that's
   currently underperforming on CARD transactions
+- **ML-routing latency overhead**: the router currently loops over every
+  eligible gateway and calls `predict_proba()` once per gateway — at
+  production scale this should batch-score all candidate gateways in a
+  single model call (plus in-memory model caching), so per-transaction
+  routing latency stays flat as the gateway count grows
