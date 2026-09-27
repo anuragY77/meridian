@@ -21,3 +21,4 @@ switchboard-dashboard/.env*.local
 .DS_Store
 .vscode/
 *.swp
+*.log
