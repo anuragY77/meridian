@@ -8,7 +8,7 @@ from kafka.errors import NoBrokersAvailable
 from app.config import settings
 from app.transaction_generator import generate_transaction
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [SWITCHBOARD-SIM] %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [MERIDIAN-SIM] %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -31,7 +31,7 @@ def run_simulator():
     sleep_interval = 1.0 / settings.simulator_tps
 
     logger.info(
-        f"Starting Switchboard simulator — {settings.simulator_tps} txns/sec, "
+        f"Starting Meridian simulator — {settings.simulator_tps} txns/sec, "
         f"publishing to topic '{settings.kafka_topic_transactions}'"
     )
 

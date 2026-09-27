@@ -1,6 +1,6 @@
-# Switchboard — Intelligent Payment Routing & Reconciliation Engine
+# Meridian — Intelligent Payment Routing & Reconciliation Engine
 
-Switchboard simulates a payment-routing layer similar to what a payment
+Meridian simulates a payment-routing layer similar to what a payment
 aggregator (like Razorpay) runs in production: incoming transactions are
 routed to the payment gateway/bank most likely to succeed, using a machine
 learning model trained on historical outcomes — not hardcoded rules.
@@ -131,8 +131,8 @@ every 5 seconds:
 
 ```bash
 # 1. Clone and configure
-git clone https://github.com/anuragY77/switchboard.git
-cd switchboard
+git clone https://github.com/anuragY77/meridian.git
+cd meridian
 cp .env.example .env   # then edit POSTGRES_PASSWORD etc.
 
 # 2. Start infrastructure
@@ -149,7 +149,7 @@ python -m app.train_model          # after enough data has accumulated
 uvicorn app.api:app --reload --port 8000   # terminal 3 — dashboard API
 
 # 4. Dashboard
-cd switchboard-dashboard
+cd meridian-dashboard
 npm install
 npm run dev   # http://localhost:3000
 ```

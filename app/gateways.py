@@ -8,7 +8,7 @@ PaymentMethod = Literal["UPI", "CARD", "NETBANKING", "WALLET"]
 
 @dataclass
 class Gateway:
-    """Represents a simulated payment gateway/PSP/bank in the Switchboard."""
+    """Represents a simulated payment gateway/PSP/bank in Meridian."""
     id: str
     name: str
     supported_methods: list[PaymentMethod]

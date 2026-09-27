@@ -12,10 +12,10 @@ __pycache__/
 app/models/*.pkl
 
 # Node / Next.js (dashboard subfolder)
-switchboard-dashboard/node_modules/
-switchboard-dashboard/.next/
-switchboard-dashboard/out/
-switchboard-dashboard/.env*.local
+meridian-dashboard/node_modules/
+meridian-dashboard/.next/
+meridian-dashboard/out/
+meridian-dashboard/.env*.local
 
 # OS/editor junk
 .DS_Store

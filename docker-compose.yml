@@ -3,7 +3,7 @@ version: '3.8'
 services:
   redpanda:
     image: redpandadata/redpanda:v24.2.4
-    container_name: switchboard_redpanda
+    container_name: meridian_redpanda
     command:
       - redpanda
       - start
@@ -22,7 +22,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: switchboard_redis
+    container_name: meridian_redis
     ports:
       - "6379:6379"
     volumes:
@@ -31,11 +31,11 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: switchboard_postgres
+    container_name: meridian_postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-switchboard_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-switchboard_db}
+      POSTGRES_DB: ${POSTGRES_DB:-meridian_db}
     ports:
       - "5433:5432"
     volumes:

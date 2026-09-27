@@ -1,6 +1,6 @@
 # app/api.py
 """
-FastAPI backend serving aggregated stats for the Switchboard dashboard.
+FastAPI backend serving aggregated stats for the Meridian dashboard.
 Run with: uvicorn app.api:app --reload --port 8000
 """
 import json
@@ -13,7 +13,7 @@ from sqlalchemy import func
 from app.database import SessionLocal, Transaction
 from app.gateways import GATEWAYS
 
-app = FastAPI(title="Switchboard Dashboard API")
+app = FastAPI(title="Meridian Dashboard API")
 
 app.add_middleware(
     CORSMiddleware,

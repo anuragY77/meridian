@@ -39,7 +39,7 @@ export default function Dashboard() {
       setRecent(rec);
       setError(null);
     } catch (e) {
-      setError("Could not reach the Switchboard API — is uvicorn running on port 8000?");
+      setError("Could not reach the Meridian API — is uvicorn running on port 8000?");
     } finally {
       setLoading(false);
     }
@@ -52,7 +52,7 @@ export default function Dashboard() {
   }, []);
 
   if (loading) {
-    return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading Switchboard...</div>;
+    return       <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading Meridian...</div>;
   }
 
   if (error) {
@@ -66,7 +66,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-black text-white p-8">
       <header className="mb-8">
-        <h1 className="text-2xl font-bold">Switchboard</h1>
+        <h1 className="text-2xl font-bold">Meridian</h1>
         <p className="text-neutral-500 text-sm">Intelligent Payment Routing & Reconciliation — live dashboard</p>
       </header>
 

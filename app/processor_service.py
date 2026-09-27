@@ -16,7 +16,7 @@ from app.gateway_health import record_outcome
 from app.retry_policy import get_backoff_delay, should_retry, MAX_ATTEMPTS
 from app.gateways import simulate_gateway_attempt
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [SWITCHBOARD-PROCESSOR] %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [MERIDIAN-PROCESSOR] %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -30,7 +30,7 @@ def get_kafka_consumer() -> KafkaConsumer:
                 key_deserializer=lambda k: k.decode("utf-8") if k else None,
                 auto_offset_reset="earliest",
                 enable_auto_commit=True,
-                group_id="switchboard-processor-group",
+                group_id="meridian-processor-group",
             )
         except NoBrokersAvailable:
             logger.warning(f"Redpanda not ready, retrying... ({attempt + 1}/5)")
@@ -140,7 +140,7 @@ def process_transaction(txn: dict) -> None:
 def run_processor():
     init_db()
     consumer = get_kafka_consumer()
-    logger.info(f"Switchboard processor started (routing_strategy={settings.routing_strategy}). Listening on 'transactions_raw'...")
+    logger.info(f"Meridian processor started (routing_strategy={settings.routing_strategy}). Listening on 'transactions_raw'...")
 
     try:
         for message in consumer:
