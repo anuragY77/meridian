@@ -52,11 +52,6 @@ def get_by_method():
     """Success rate breakdown per payment method."""
     db = SessionLocal()
     try:
-        rows = db.query(
-            Transaction.method,
-            func.count(Transaction.transaction_id).label("total"),
-            func.sum(func.cast(Transaction.status == "success", type_=None)).label("_unused"),
-        ).group_by(Transaction.method).all()
         # SQLAlchemy doesn't cast booleans portably across DBs cleanly here,
         # so compute success counts with a simpler filtered approach instead:
         result = []
