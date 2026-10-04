@@ -227,3 +227,81 @@ def get_fraud_flags(limit: int = Query(default=50, le=200)):
         }
     finally:
         db.close()
+
+
+@app.get("/api/settlements")
+def get_settlements():
+    """Cross-border settlement summary, by currency."""
+    from app.database import Settlement
+
+    db = SessionLocal()
+    try:
+        currencies = db.query(Settlement.original_currency).distinct().all()
+
+        result = []
+        total_net_inr = 0.0
+        for (currency,) in currencies:
+            rows = db.query(Settlement).filter(Settlement.original_currency == currency).all()
+            count = len(rows)
+            net_sum = sum(r.net_settlement_inr for r in rows)
+            fee_sum = sum(r.conversion_fee_inr for r in rows)
+            total_net_inr += net_sum
+
+            result.append({
+                "currency": currency,
+                "count": count,
+                "net_settlement_inr": round(net_sum, 2),
+                "total_fee_inr": round(fee_sum, 2),
+            })
+
+        mismatch_count = db.query(Settlement).filter(
+            Settlement.reconciliation_status == "mismatch"
+        ).count()
+
+        return {
+            "by_currency": sorted(result, key=lambda r: r["count"], reverse=True),
+            "total_net_settled_inr": round(total_net_inr, 2),
+            "reconciliation_mismatches": mismatch_count,
+        }
+    finally:
+        db.close()
+
+
+@app.get("/api/disputes")
+def get_disputes():
+    """Dispute/SLA tracker summary, including false-positive rate (the merchant pain-point)."""
+    from app.database import Dispute
+
+    db = SessionLocal()
+    try:
+        status_counts: dict[str, int] = {}
+        for row in db.query(Dispute.status).all():
+            status_counts[row[0]] = status_counts.get(row[0], 0) + 1
+
+        resolved = db.query(Dispute).filter(Dispute.status == "resolved").all()
+        fp_eligible = [d for d in resolved if d.was_false_positive is not None]
+        false_positive_count = sum(1 for d in fp_eligible if d.was_false_positive)
+
+        recent = db.query(Dispute).order_by(Dispute.raised_at.desc()).limit(20).all()
+
+        return {
+            "by_status": status_counts,
+            "false_positive_rate": (
+                round(false_positive_count / len(fp_eligible), 4) if fp_eligible else None
+            ),
+            "false_positive_count": false_positive_count,
+            "fraud_flag_disputes_total": len(fp_eligible),
+            "recent": [
+                {
+                    "transaction_id": d.transaction_id[:8],
+                    "merchant_id": d.merchant_id,
+                    "dispute_type": d.dispute_type,
+                    "status": d.status,
+                    "was_false_positive": d.was_false_positive,
+                    "raised_at": d.raised_at.isoformat() if d.raised_at else None,
+                }
+                for d in recent
+            ],
+        }
+    finally:
+        db.close()
