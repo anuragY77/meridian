@@ -60,6 +60,32 @@ export interface FraudFlagsResponse {
   }[];
 }
 
+export interface SettlementsResponse {
+  by_currency: {
+    currency: string;
+    count: number;
+    net_settlement_inr: number;
+    total_fee_inr: number;
+  }[];
+  total_net_settled_inr: number;
+  reconciliation_mismatches: number;
+}
+
+export interface DisputesResponse {
+  by_status: Record<string, number>;
+  false_positive_rate: number | null;
+  false_positive_count: number;
+  fraud_flag_disputes_total: number;
+  recent: {
+    transaction_id: string;
+    merchant_id: string;
+    dispute_type: string;
+    status: string;
+    was_false_positive: boolean | null;
+    raised_at: string | null;
+  }[];
+}
+
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to fetch ${path}: ${res.status}`);
@@ -75,4 +101,6 @@ export const api = {
   recentTransactions: (limit = 20) =>
     fetchJson<RecentTransaction[]>(`/api/recent-transactions?limit=${limit}`),
   fraudFlags: (limit = 50) => fetchJson<FraudFlagsResponse>(`/api/fraud-flags?limit=${limit}`),
+  settlements: () => fetchJson<SettlementsResponse>("/api/settlements"),
+  disputes: () => fetchJson<DisputesResponse>("/api/disputes"),
 };
