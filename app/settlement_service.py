@@ -12,7 +12,7 @@ this mirrors that reality rather than pretending settlement is instant.
 import time
 import logging
 
-from app.database import init_db, SessionLocal, Transaction, Settlement
+from app.database import SessionLocal, Transaction, Settlement
 from app.fx_rates import convert_to_inr
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [MERIDIAN-SETTLEMENT] %(message)s")
@@ -77,7 +77,6 @@ def process_pending_settlements() -> int:
 
 
 def run_settlement_service():
-    init_db()
     logger.info(f"Meridian settlement service started. Processing every {BATCH_INTERVAL_SECONDS}s...")
 
     try:

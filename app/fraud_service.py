@@ -16,7 +16,7 @@ from kafka import KafkaConsumer
 from kafka.errors import NoBrokersAvailable
 
 from app.config import settings
-from app.database import init_db, SessionLocal, FraudFlag
+from app.database import SessionLocal, FraudFlag
 from app.fraud_engine import evaluate_transaction
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [MERIDIAN-FRAUD] %(message)s")
@@ -42,7 +42,6 @@ def get_kafka_consumer() -> KafkaConsumer:
 
 
 def run_fraud_service():
-    init_db()
     consumer = get_kafka_consumer()
     logger.info("Meridian fraud engine started. Listening on 'transactions_raw' (independent of routing)...")
 

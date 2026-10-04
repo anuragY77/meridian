@@ -19,7 +19,7 @@ import logging
 from datetime import datetime, timedelta
 
 from app.config import settings
-from app.database import init_db, SessionLocal, Transaction, Dispute, FraudFlag
+from app.database import SessionLocal, Transaction, Dispute, FraudFlag
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [MERIDIAN-DISPUTE] %(message)s")
 logger = logging.getLogger(__name__)
@@ -130,7 +130,6 @@ def check_sla_and_resolve():
 
 
 def run_dispute_service():
-    init_db()
     logger.info(f"Meridian dispute/SLA service started. Checking every {CHECK_INTERVAL_SECONDS}s...")
 
     try:

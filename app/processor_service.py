@@ -8,7 +8,7 @@ from kafka import KafkaConsumer
 from kafka.errors import NoBrokersAvailable
 
 from app.config import settings
-from app.database import init_db, SessionLocal, Transaction
+from app.database import SessionLocal, Transaction
 from app.idempotency import is_duplicate, mark_processed
 from app.router import select_best_gateway
 from app.ml_router import select_best_gateway_ml
@@ -139,7 +139,6 @@ def process_transaction(txn: dict) -> None:
 
 
 def run_processor():
-    init_db()
     consumer = get_kafka_consumer()
     logger.info(f"Meridian processor started (routing_strategy={settings.routing_strategy}). Listening on 'transactions_raw'...")
 
