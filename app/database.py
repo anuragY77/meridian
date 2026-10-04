@@ -1,5 +1,5 @@
 # app/database.py
-from sqlalchemy import create_engine, Column, String, Float, DateTime, Integer, Text
+from sqlalchemy import create_engine, Column, String, Float, DateTime, Integer, Text, Boolean
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import datetime
 
@@ -51,13 +51,6 @@ class FraudFlag(Base):
 
 
 class Settlement(Base):
-    """
-    Represents the settlement of ONE successful cross-border transaction
-    into INR. Kept as a separate table (not columns on Transaction) because
-    settlement is conceptually a distinct downstream event — a transaction
-    can succeed at the gateway level well before it's actually settled,
-    exactly like real payment aggregators.
-    """
     __tablename__ = "settlements"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -71,8 +64,34 @@ class Settlement(Base):
     conversion_fee_inr = Column(Float, nullable=False)
     net_settlement_inr = Column(Float, nullable=False)
 
-    reconciliation_status = Column(String, default="pending")  # pending, matched, mismatch
+    reconciliation_status = Column(String, default="pending")
     settled_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class Dispute(Base):
+    """
+    Tracks a merchant/customer dispute raised against a successful
+    transaction, with an RBI-style mandated resolution deadline.
+    `was_false_positive` links back to Phase 6's fraud_flags: if a
+    transaction was fraud-flagged but the dispute later confirms it was
+    legitimate, this captures exactly the merchant pain-point the earlier
+    research surfaced (false-positive account/transaction flags).
+    """
+    __tablename__ = "disputes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    transaction_id = Column(String, nullable=False, index=True)
+    merchant_id = Column(String, nullable=False, index=True)
+    customer_id = Column(String, nullable=False, index=True)
+
+    dispute_type = Column(String, nullable=False)   # "unauthorized", "goods_not_received", "duplicate_charge"
+    status = Column(String, default="open", index=True)  # open, resolved, breached
+    was_false_positive = Column(Boolean, nullable=True)   # null until resolved
+
+    raised_at = Column(DateTime, default=datetime.utcnow, index=True)
+    sla_deadline = Column(DateTime, nullable=False, index=True)
+    resolved_at = Column(DateTime, nullable=True)
+    resolution_note = Column(Text, nullable=True)
 
 
 def init_db():
