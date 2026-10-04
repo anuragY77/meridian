@@ -6,6 +6,7 @@ from datetime import datetime
 
 from kafka import KafkaConsumer
 from kafka.errors import NoBrokersAvailable
+from prometheus_client import start_http_server
 
 from app.config import settings
 from app.database import SessionLocal, Transaction
@@ -15,9 +16,16 @@ from app.ml_router import select_best_gateway_ml
 from app.gateway_health import record_outcome
 from app.retry_policy import get_backoff_delay, should_retry, MAX_ATTEMPTS
 from app.gateways import simulate_gateway_attempt
+from app.metrics import (
+    transactions_processed_total,
+    gateway_attempts_total,
+    routing_decision_latency_seconds,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [MERIDIAN-PROCESSOR] %(message)s")
 logger = logging.getLogger(__name__)
+
+METRICS_PORT = 9100
 
 
 def get_kafka_consumer() -> KafkaConsumer:
@@ -39,9 +47,14 @@ def get_kafka_consumer() -> KafkaConsumer:
 
 
 def choose_gateway(method: str, amount: float, timestamp: datetime, exclude_ids: set[str]):
+    start = time.perf_counter()
     if settings.routing_strategy == "ml":
-        return select_best_gateway_ml(method, amount, timestamp, exclude_ids)
-    return select_best_gateway(method, amount, timestamp, exclude_ids)
+        result = select_best_gateway_ml(method, amount, timestamp, exclude_ids)
+    else:
+        result = select_best_gateway(method, amount, timestamp, exclude_ids)
+    elapsed = time.perf_counter() - start
+    routing_decision_latency_seconds.labels(strategy=settings.routing_strategy).observe(elapsed)
+    return result
 
 
 def process_transaction(txn: dict) -> None:
@@ -97,6 +110,10 @@ def process_transaction(txn: dict) -> None:
             attempts_log.append({"attempt": attempt_number, **result})
 
             record_outcome(gateway.id, result["success"])
+            gateway_attempts_total.labels(
+                gateway_id=gateway.id,
+                outcome="success" if result["success"] else "failure",
+            ).inc()
 
             record.attempt_count = attempt_number
             record.last_latency_ms = result["latency_ms"]
@@ -125,6 +142,7 @@ def process_transaction(txn: dict) -> None:
         db.commit()
 
         mark_processed(idempotency_key, txn["transaction_id"])
+        transactions_processed_total.labels(status=final_status).inc()
 
         logger.info(
             f"Transaction {txn['transaction_id'][:8]}... -> {final_status.upper()} "
@@ -139,6 +157,9 @@ def process_transaction(txn: dict) -> None:
 
 
 def run_processor():
+    start_http_server(METRICS_PORT)
+    logger.info(f"Metrics server started on :{METRICS_PORT}/metrics")
+
     consumer = get_kafka_consumer()
     logger.info(f"Meridian processor started (routing_strategy={settings.routing_strategy}). Listening on 'transactions_raw'...")
 
