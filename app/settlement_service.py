@@ -1,25 +1,19 @@
-"""
-Standalone settlement service — periodically scans for successful,
-non-INR transactions that haven't been settled yet, converts them to INR
-via fx_rates, and writes a Settlement record with a full reconciliation
-check (does net + fee == gross, within floating-point tolerance?).
-
-Runs as a periodic batch job (not a live Kafka consumer) because real
-settlement in payment systems is typically a batch/cycle process (e.g.
-T+1, T+2 settlement cycles), not an instant per-transaction event —
-this mirrors that reality rather than pretending settlement is instant.
-"""
+# app/settlement_service.py
 import time
 import logging
 
+from prometheus_client import start_http_server
+
 from app.database import SessionLocal, Transaction, Settlement
 from app.fx_rates import convert_to_inr
+from app.metrics import settlements_processed_total, reconciliation_mismatches_total
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [MERIDIAN-SETTLEMENT] %(message)s")
 logger = logging.getLogger(__name__)
 
+METRICS_PORT = 9102
 BATCH_INTERVAL_SECONDS = 30
-RECONCILIATION_TOLERANCE = 0.01  # 1 paisa tolerance for floating-point rounding
+RECONCILIATION_TOLERANCE = 0.01
 
 
 def process_pending_settlements() -> int:
@@ -39,10 +33,6 @@ def process_pending_settlements() -> int:
 
             breakdown = convert_to_inr(txn.amount, txn.currency)
 
-            # Reconciliation check: net + fee should equal gross, within tolerance.
-            # This is a deliberately simple self-consistency check — in a real
-            # system reconciliation also cross-checks against the bank's/PSP's
-            # own settlement report, which this simulation doesn't have access to.
             reconstructed_gross = breakdown["net_settlement_inr"] + breakdown["conversion_fee_inr"]
             is_matched = abs(reconstructed_gross - breakdown["gross_inr"]) <= RECONCILIATION_TOLERANCE
 
@@ -60,7 +50,9 @@ def process_pending_settlements() -> int:
             db.add(settlement)
             processed += 1
 
+            settlements_processed_total.labels(currency=breakdown["original_currency"]).inc()
             if not is_matched:
+                reconciliation_mismatches_total.inc()
                 logger.error(
                     f"RECONCILIATION MISMATCH for txn {txn.transaction_id[:8]}...: "
                     f"gross={breakdown['gross_inr']}, reconstructed={reconstructed_gross}"
@@ -77,6 +69,8 @@ def process_pending_settlements() -> int:
 
 
 def run_settlement_service():
+    start_http_server(METRICS_PORT)
+    logger.info(f"Metrics server started on :{METRICS_PORT}/metrics")
     logger.info(f"Meridian settlement service started. Processing every {BATCH_INTERVAL_SECONDS}s...")
 
     try:
