@@ -7,6 +7,7 @@ import json
 from datetime import datetime, timedelta
 
 from fastapi import FastAPI, Query
+from prometheus_client import make_asgi_app
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
 
@@ -305,3 +306,8 @@ def get_disputes():
         }
     finally:
         db.close()
+
+
+# Mount Prometheus metrics endpoint at /metrics
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
