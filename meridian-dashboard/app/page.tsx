@@ -10,6 +10,9 @@ import { StatCard } from "@/components/StatCard";
 import { RoutingComparisonCard } from "@/components/RoutingComparisonCard";
 import { FraudPanel } from "@/components/FraudPanel";
 import { FraudFlagsResponse } from "@/lib/api";
+import { SettlementPanel } from "@/components/SettlementPanel";
+import { DisputePanel } from "@/components/DisputePanel";
+import { SettlementsResponse, DisputesResponse } from "@/lib/api";
 
 const COLORS = ["#34d399", "#60a5fa", "#f472b6", "#fbbf24", "#a78bfa", "#f87171"];
 
@@ -21,12 +24,14 @@ export default function Dashboard() {
   const [routingComparison, setRoutingComparison] = useState<RoutingComparison[]>([]);
   const [recent, setRecent] = useState<RecentTransaction[]>([]);
   const [fraudFlags, setFraudFlags] = useState<FraudFlagsResponse | null>(null);
+  const [settlements, setSettlements] = useState<SettlementsResponse | null>(null);
+  const [disputes, setDisputes] = useState<DisputesResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   async function loadAll() {
     try {
-      const [ov, meth, gw, decl, routing, rec, fraud] = await Promise.all([
+      const [ov, meth, gw, decl, routing, rec, fraud, settle, disp] = await Promise.all([
         api.overview(),
         api.byMethod(),
         api.byGateway(),
@@ -34,6 +39,8 @@ export default function Dashboard() {
         api.routingComparison(),
         api.recentTransactions(15),
         api.fraudFlags(30),
+        api.settlements(),
+        api.disputes(),
       ]);
       setOverview(ov);
       setByMethod(meth);
@@ -42,6 +49,8 @@ export default function Dashboard() {
       setRoutingComparison(routing);
       setRecent(rec);
       setFraudFlags(fraud);
+      setSettlements(settle);
+      setDisputes(disp);
       setError(null);
     } catch (e) {
       setError("Could not reach the Meridian API — is uvicorn running on port 8000?");
@@ -91,6 +100,13 @@ export default function Dashboard() {
       {fraudFlags && (
         <div className="mb-6">
           <FraudPanel data={fraudFlags} />
+        </div>
+      )}
+
+      {settlements && disputes && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <SettlementPanel data={settlements} />
+          <DisputePanel data={disputes} />
         </div>
       )}
 
