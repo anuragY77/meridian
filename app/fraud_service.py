@@ -1,12 +1,4 @@
 # app/fraud_service.py
-"""
-Standalone fraud-detection consumer — reads from the SAME Kafka topic as
-processor_service.py, but as an independent consumer group, so it runs in
-parallel without any coupling to (or slowing down) the core routing path.
-This is the same "plug fraud detection on top of the stream, don't touch
-core routing" design decided back in Phase 0.
-Run with: python -m app.fraud_service
-"""
 import json
 import time
 import logging
@@ -14,13 +6,17 @@ from datetime import datetime
 
 from kafka import KafkaConsumer
 from kafka.errors import NoBrokersAvailable
+from prometheus_client import start_http_server
 
 from app.config import settings
 from app.database import SessionLocal, FraudFlag
 from app.fraud_engine import evaluate_transaction
+from app.metrics import fraud_flags_total
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [MERIDIAN-FRAUD] %(message)s")
 logger = logging.getLogger(__name__)
+
+METRICS_PORT = 9101
 
 
 def get_kafka_consumer() -> KafkaConsumer:
@@ -33,7 +29,7 @@ def get_kafka_consumer() -> KafkaConsumer:
                 key_deserializer=lambda k: k.decode("utf-8") if k else None,
                 auto_offset_reset="earliest",
                 enable_auto_commit=True,
-                group_id="meridian-fraud-group",   # separate consumer group — independent offset tracking
+                group_id="meridian-fraud-group",
             )
         except NoBrokersAvailable:
             logger.warning(f"Redpanda not ready, retrying... ({attempt + 1}/5)")
@@ -42,6 +38,9 @@ def get_kafka_consumer() -> KafkaConsumer:
 
 
 def run_fraud_service():
+    start_http_server(METRICS_PORT)
+    logger.info(f"Metrics server started on :{METRICS_PORT}/metrics")
+
     consumer = get_kafka_consumer()
     logger.info("Meridian fraud engine started. Listening on 'transactions_raw' (independent of routing)...")
 
@@ -69,6 +68,7 @@ def run_fraud_service():
                             severity=flag["severity"],
                             flagged_at=timestamp,
                         ))
+                        fraud_flags_total.labels(rule=flag["rule_triggered"]).inc()
                     db.commit()
                     for flag in flags:
                         logger.warning(
