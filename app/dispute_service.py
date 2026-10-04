@@ -1,37 +1,30 @@
-"""
-Simulates the merchant-dispute lifecycle with RBI-style mandated
-resolution SLAs. Two jobs run on a timer:
-  1. Raise new disputes against a small sample of recent successful
-     transactions (simulating customers filing complaints).
-  2. Check all open disputes against their SLA deadline — auto-resolve
-     some (simulating a support team working through the queue) and
-     mark any that blew past deadline as "breached".
-
-Also closes the loop with Phase 6: if a resolved dispute's transaction
-was previously fraud-flagged but the dispute confirms the transaction
-was legitimate, it's recorded as a false positive — this is the
-concrete, measurable version of the "false-positive account freeze"
-merchant pain-point found during the original research phase.
-"""
+# app/dispute_service.py
 import random
 import time
 import logging
 from datetime import datetime, timedelta
 
+from prometheus_client import start_http_server
+
 from app.config import settings
 from app.database import SessionLocal, Transaction, Dispute, FraudFlag
+from app.metrics import (
+    disputes_raised_total,
+    disputes_resolved_total,
+    sla_breaches_total,
+    open_disputes_gauge,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [MERIDIAN-DISPUTE] %(message)s")
 logger = logging.getLogger(__name__)
 
+METRICS_PORT = 9103
 CHECK_INTERVAL_SECONDS = 20
-DISPUTE_RAISE_RATE = 0.015           # ~1.5% of eligible successful txns get a dispute per cycle
+DISPUTE_RAISE_RATE = 0.015
 SLA_RESOLUTION_DAYS = settings.sla_resolution_days
-RESOLUTION_CHANCE_PER_CHECK = 0.35    # chance an open dispute gets resolved on any given check cycle
+RESOLUTION_CHANCE_PER_CHECK = 0.35
 
 DISPUTE_TYPES = ["unauthorized", "goods_not_received", "duplicate_charge"]
-# Most disputes, once investigated, turn out NOT to be fraud (false positive
-# rate here is deliberately high-ish to make the pain-point visible/measurable)
 FALSE_POSITIVE_PROBABILITY = 0.70
 
 
@@ -63,6 +56,7 @@ def raise_new_disputes():
             )
             db.add(dispute)
             raised += 1
+            disputes_raised_total.inc()
 
         db.commit()
         return raised
@@ -89,6 +83,7 @@ def check_sla_and_resolve():
             if is_past_deadline:
                 dispute.status = "breached"
                 breached_count += 1
+                sla_breaches_total.inc()
                 logger.warning(
                     f"SLA BREACH: dispute #{dispute.id} (txn {dispute.transaction_id[:8]}...) "
                     f"missed its {SLA_RESOLUTION_DAYS}-day deadline"
@@ -101,12 +96,11 @@ def check_sla_and_resolve():
                 ).first() is not None
 
                 if was_fraud_flagged:
-                    # Resolve it — most of the time the flag turns out to
-                    # have been a false positive (the measurable version
-                    # of the merchant "account freeze" pain-point)
                     was_false_positive = random.random() < FALSE_POSITIVE_PROBABILITY
+                    fp_label = "true" if was_false_positive else "false"
                 else:
-                    was_false_positive = None  # not applicable — was never flagged
+                    was_false_positive = None
+                    fp_label = "not_applicable"
 
                 dispute.status = "resolved"
                 dispute.resolved_at = now
@@ -118,8 +112,13 @@ def check_sla_and_resolve():
                           else "Dispute resolved in merchant's favor")
                 )
                 resolved_count += 1
+                disputes_resolved_total.labels(was_false_positive=fp_label).inc()
 
         db.commit()
+
+        current_open = db.query(Dispute).filter(Dispute.status == "open").count()
+        open_disputes_gauge.set(current_open)
+
         return resolved_count, breached_count
     except Exception as e:
         db.rollback()
@@ -130,6 +129,8 @@ def check_sla_and_resolve():
 
 
 def run_dispute_service():
+    start_http_server(METRICS_PORT)
+    logger.info(f"Metrics server started on :{METRICS_PORT}/metrics")
     logger.info(f"Meridian dispute/SLA service started. Checking every {CHECK_INTERVAL_SECONDS}s...")
 
     try:
