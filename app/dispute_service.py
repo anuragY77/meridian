@@ -18,6 +18,7 @@ import time
 import logging
 from datetime import datetime, timedelta
 
+from app.config import settings
 from app.database import init_db, SessionLocal, Transaction, Dispute, FraudFlag
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [MERIDIAN-DISPUTE] %(message)s")
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 CHECK_INTERVAL_SECONDS = 20
 DISPUTE_RAISE_RATE = 0.015           # ~1.5% of eligible successful txns get a dispute per cycle
-SLA_RESOLUTION_DAYS = 7               # RBI-style "7 working days" style deadline (simplified, no business-day calc)
+SLA_RESOLUTION_DAYS = settings.sla_resolution_days
 RESOLUTION_CHANCE_PER_CHECK = 0.35    # chance an open dispute gets resolved on any given check cycle
 
 DISPUTE_TYPES = ["unauthorized", "goods_not_received", "duplicate_charge"]
